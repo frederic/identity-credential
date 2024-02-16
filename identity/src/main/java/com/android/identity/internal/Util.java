@@ -773,6 +773,51 @@ public class Util {
         }
     }
 
+    public static List<byte[]> coseExtractIssuerSignedData(@NonNull DataItem coseSign1, @NonNull PublicKey publicKey) {
+        if (coseSign1.getMajorType() != MajorType.ARRAY) {
+            throw new IllegalArgumentException("Data item is not an array");
+        }
+        List<DataItem> items = ((co.nstant.in.cbor.model.Array) coseSign1).getDataItems();
+        if (items.size() < 4) {
+            throw new IllegalArgumentException("Expected at least four items in COSE_Sign1 array");
+        }
+        if (items.get(0).getMajorType() != MajorType.BYTE_STRING) {
+            throw new IllegalArgumentException("Item 0 (protected headers) is not a byte-string");
+        }
+        byte[] encodedProtectedHeaders = ((co.nstant.in.cbor.model.ByteString) items.get(
+                0)).getBytes();
+        byte[] payload = new byte[0];
+        if (items.get(2).getMajorType() == MajorType.SPECIAL) {
+            if (((co.nstant.in.cbor.model.Special) items.get(2)).getSpecialType()
+                    != SpecialType.SIMPLE_VALUE) {
+                throw new IllegalArgumentException(
+                        "Item 2 (payload) is a special but not a simple value");
+            }
+            SimpleValue simple = (co.nstant.in.cbor.model.SimpleValue) items.get(2);
+            if (simple.getSimpleValueType() != SimpleValueType.NULL) {
+                throw new IllegalArgumentException(
+                        "Item 2 (payload) is a simple but not the value null");
+            }
+        } else if (items.get(2).getMajorType() == MajorType.BYTE_STRING) {
+            payload = ((co.nstant.in.cbor.model.ByteString) items.get(2)).getBytes();
+        } else {
+            throw new IllegalArgumentException("Item 2 (payload) is not nil or byte-string");
+        }
+        if (items.get(3).getMajorType() != MajorType.BYTE_STRING) {
+            throw new IllegalArgumentException("Item 3 (signature) is not a byte-string");
+        }
+        byte[] coseSignature = ((co.nstant.in.cbor.model.ByteString) items.get(3)).getBytes();
+        byte[] derSignature = signatureCoseToDer(coseSignature);
+
+        byte[] toBeSigned = Util.coseBuildToBeSigned(encodedProtectedHeaders, payload,
+                null);
+        List<byte[]> byteArrayList = new ArrayList<>();
+        byteArrayList.add(publicKey.getEncoded());
+        byteArrayList.add(toBeSigned);
+        byteArrayList.add(derSignature);
+        return byteArrayList;
+    }
+
     private static @NonNull
     byte[] coseBuildToBeMACed(@NonNull byte[] encodedProtectedHeaders,
             @NonNull byte[] payload,

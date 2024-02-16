@@ -146,6 +146,7 @@ public final class DeviceResponseParser {
         static final String TAG = "DeviceResponse";
 
         List<Document> mResultDocuments = null;
+        IssuerSignedData mIssuerSignedData = null;
         private String mVersion;
 
         // Returns the DeviceKey from the MSO
@@ -168,6 +169,7 @@ public final class DeviceResponseParser {
 
             boolean issuerSignedAuthenticated = Util.coseSign1CheckSignature(
                     issuerAuthDataItem, null, issuerAuthorityKey);
+            mIssuerSignedData = new IssuerSignedData(issuerAuthDataItem, issuerAuthorityKey);
             Logger.d(TAG, "issuerSignedAuthenticated: " + issuerSignedAuthenticated);
             builder.setIssuerSignedAuthenticated(issuerSignedAuthenticated);
             builder.setIssuerCertificateChain(issuerAuthorityCertChain);
@@ -391,6 +393,10 @@ public final class DeviceResponseParser {
          */
         public @NonNull List<Document> getDocuments() {
             return mResultDocuments;
+        }
+
+        public @NonNull IssuerSignedData getIssuerSignedData() {
+            return mIssuerSignedData;
         }
 
         private @Constants.DeviceResponseStatus
@@ -907,6 +913,29 @@ public final class DeviceResponseParser {
             Document build() {
                 return mResult;
             }
+        }
+    }
+    public static class IssuerSignedData {
+        public byte[] getmPublicKey() {
+            return mPublicKey;
+        }
+
+        public byte[] getmIssuerData() {
+            return mIssuerData;
+        }
+
+        public byte[] getDerSignature() {
+            return derSignature;
+        }
+
+        byte[] mPublicKey;
+        byte[] mIssuerData;
+        byte[] derSignature;
+        public IssuerSignedData(DataItem coseSign1, PublicKey publicKey) {
+            List<byte[]> res = Util.coseExtractIssuerSignedData(coseSign1, publicKey);
+            mPublicKey = res.get(0);
+            mIssuerData = res.get(1);
+            derSignature = res.get(2);
         }
     }
 }
